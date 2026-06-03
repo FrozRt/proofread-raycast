@@ -1,19 +1,19 @@
 /**
- * Единая ошибка перевода с дискриминантом `kind`.
+ * A single translation error type discriminated by `kind`.
  *
- * Один класс с union-полем `kind` вместо иерархии (AuthError/RateLimitError/…):
- * маппинг в UI — это исчерпывающий `switch (error.kind)`, а не цепочка instanceof,
- * и меньше boilerplate.
+ * One class with a union `kind` field instead of a class hierarchy
+ * (AuthError/RateLimitError/…): the UI maps it with an exhaustive
+ * `switch (error.kind)` rather than an instanceof chain, with less boilerplate.
  */
 
 export type TranslateErrorKind =
-  | "empty" // пустой ввод — нечего переводить
-  | "auth" // ключ не задан или отклонён (401/403)
+  | "empty" // empty input — nothing to translate
+  | "auth" // key missing or rejected (401/403)
   | "rateLimit" // 429
-  | "timeout" // сработал AbortController по таймауту
-  | "network" // соединение не удалось
-  | "parse" // сервис вернул пустой/непарсируемый envelope
-  | "api"; // прочий не-2xx ответ
+  | "timeout" // the AbortController timeout fired
+  | "network" // the connection failed
+  | "parse" // the service returned an empty/unparseable envelope
+  | "api"; // any other non-2xx response
 
 export interface TranslateErrorMeta {
   status?: number;
@@ -39,7 +39,7 @@ export class TranslateError extends Error {
   }
 }
 
-/** Любую пойманную ошибку приводим к TranslateError (для единообразного UI). */
+/** Normalize any caught value to a TranslateError (for uniform UI handling). */
 export function asTranslateError(error: unknown): TranslateError {
   if (error instanceof TranslateError) {
     return error;
@@ -48,7 +48,11 @@ export function asTranslateError(error: unknown): TranslateError {
   return new TranslateError("api", message, { cause: error });
 }
 
-/** Маппинг HTTP-статуса в типизированную ошибку. `label` — имя сервиса для текста. */
+/**
+ * Map an HTTP status to a typed error. `label` is the service name shown to the
+ * user. The raw response body is kept only in `cause` (for debugging) and is
+ * never spliced into the user-facing message.
+ */
 export function errorFromStatus(
   label: string,
   status: number,
@@ -57,21 +61,19 @@ export function errorFromStatus(
   if (status === 401 || status === 403) {
     return new TranslateError(
       "auth",
-      `${label} отклонил API-ключ (HTTP ${status}).`,
-      { status },
+      `${label} rejected the API key (HTTP ${status}).`,
+      { status, cause: body },
     );
   }
   if (status === 429) {
     return new TranslateError(
       "rateLimit",
-      `Превышен лимит запросов к ${label} (HTTP 429).`,
-      { status },
+      `${label} rate limit exceeded (HTTP 429).`,
+      { status, cause: body },
     );
   }
-  const snippet = body.trim().slice(0, 300);
-  return new TranslateError(
-    "api",
-    `Ошибка API ${label}: HTTP ${status}.${snippet ? ` ${snippet}` : ""}`,
-    { status },
-  );
+  return new TranslateError("api", `${label} API error: HTTP ${status}.`, {
+    status,
+    cause: body,
+  });
 }

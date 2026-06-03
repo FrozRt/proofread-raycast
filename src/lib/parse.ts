@@ -1,12 +1,12 @@
 /**
- * Безопасный разбор JSON-ответа модели с фолбэком.
+ * Defensive parsing of the model's JSON output with a fallback.
  *
- * Модель просят вернуть строго {"translation": string, "explanation": string|null}
- * без преамбулы и ```-обёрток. Но модели иногда своевольничают, поэтому:
- *   1) срезаем код-фенсы;
- *   2) пробуем JSON.parse;
- *   3) пробуем вырезать первый сбалансированный {...};
- *   4) фолбэк: весь текст = translation, explanation = null (§3, требование ТЗ).
+ * The model is asked to return strictly {"translation": string, "explanation": string|null}
+ * with no preamble and no ``` fences. Models misbehave, so we:
+ *   1) strip code fences;
+ *   2) try JSON.parse;
+ *   3) try to extract the first brace-balanced {...};
+ *   4) fall back to: whole text = translation, explanation = null (spec §3).
  */
 
 import type { TranslateResult } from "../providers/types";
@@ -16,7 +16,7 @@ function stripCodeFences(text: string): string {
   return (fenced ? fenced[1] : text).trim();
 }
 
-/** Вырезает первый сбалансированный по фигурным скобкам блок (учёт строк/экранирования). */
+/** Extracts the first brace-balanced object (string/escape aware). */
 function extractFirstObject(text: string): string | null {
   const start = text.indexOf("{");
   if (start === -1) {
@@ -79,8 +79,8 @@ function tryParse(candidate: string): TranslateResult | null {
 
 export function parseModelOutput(raw: string): TranslateResult {
   const text = (raw ?? "").trim();
-
   const cleaned = stripCodeFences(text);
+
   const direct = tryParse(cleaned);
   if (direct) {
     return direct;
@@ -94,6 +94,6 @@ export function parseModelOutput(raw: string): TranslateResult {
     }
   }
 
-  // Фолбэк: модель проигнорировала формат — не падаем, показываем сырой текст.
-  return { translation: text, explanation: null };
+  // Fallback: the model ignored the format — show the fence-stripped text as-is.
+  return { translation: cleaned || text, explanation: null };
 }
