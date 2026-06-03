@@ -1,5 +1,5 @@
-/** Google Gemini generateContent. Ключ — в заголовке x-goog-api-key (не в URL).
- *  JSON через generationConfig.responseMimeType. */
+/** Google Gemini generateContent. The key goes in the x-goog-api-key header (not the URL).
+ *  JSON via generationConfig.responseMimeType. */
 
 import { buildSystemPrompt, buildUserPrompt } from "../prompt";
 import { postJson } from "../lib/http";
@@ -8,6 +8,8 @@ import { TranslateError } from "../lib/errors";
 import type { TranslateOptions, TranslateResult } from "./types";
 
 function endpoint(model: string): string {
+  // `model` comes from a user-editable preference; encodeURIComponent keeps it
+  // inside the path segment (no host/path injection).
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 }
 
@@ -37,7 +39,7 @@ export async function translateWithGemini(
   if (json.promptFeedback?.blockReason) {
     throw new TranslateError(
       "api",
-      `Gemini заблокировал запрос: ${json.promptFeedback.blockReason}.`,
+      `Gemini blocked the request: ${json.promptFeedback.blockReason}.`,
     );
   }
 
@@ -45,7 +47,7 @@ export async function translateWithGemini(
     .map((part) => part.text ?? "")
     .join("");
   if (text.trim() === "") {
-    throw new TranslateError("parse", "Gemini вернул пустой ответ.");
+    throw new TranslateError("parse", "Gemini returned an empty response.");
   }
 
   return parseModelOutput(text);

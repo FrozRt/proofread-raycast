@@ -1,14 +1,14 @@
 /**
- * Точка входа ядра: `translate()`. Валидирует ввод/ключ и делегирует Gemini —
- * единственному провайдеру приложения. Слой gemini.ts оставлен как граница:
- * вернуть других провайдеров = достать их модули из git-истории + диспетчер.
+ * Core entry point: `translate()`. Validates input/key and delegates to Gemini,
+ * the app's only provider. The gemini.ts layer is kept as a seam: re-adding other
+ * providers means restoring their modules from git history plus a dispatcher.
  */
 
 import { TranslateError } from "../lib/errors";
 import { translateWithGemini } from "./gemini";
 import type { TranslateOptions, TranslateResult } from "./types";
 
-/** Дефолтная модель Gemini — фолбэк, если поле в настройках пустое. */
+/** Default Gemini model — fallback when the preference field is empty. */
 export const DEFAULT_MODEL = "gemini-2.5-flash";
 
 export async function translate(
@@ -17,12 +17,12 @@ export async function translate(
 ): Promise<TranslateResult> {
   const text = input.trim();
   if (text === "") {
-    throw new TranslateError("empty", "Пустой ввод — нечего переводить.");
+    throw new TranslateError("empty", "Empty input — nothing to translate.");
   }
   if (opts.apiKey.trim() === "") {
     throw new TranslateError(
       "auth",
-      "Не задан Gemini API-ключ. Он бесплатный: получи на aistudio.google.com (Get API key).",
+      "No Gemini API key set. It's free — get one at aistudio.google.com (Get API key).",
     );
   }
 
