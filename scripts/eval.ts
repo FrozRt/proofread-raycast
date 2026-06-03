@@ -1,17 +1,18 @@
 /**
- * Headless-прогон тест-кейсов §8 в обход UI Raycast (только Gemini).
+ * Headless run of the §8 test cases, bypassing the Raycast UI (Gemini only).
  *
- * Валидирует ЛОГИКУ промпта (главный риск) напрямую через ядро `translate()`,
- * без модалки Raycast и без preferences. Ключ берётся из env GEMINI_API_KEY.
+ * Validates the prompt LOGIC (the main risk) directly through the core
+ * `translate()`, without the Raycast modal and without preferences. The key
+ * comes from the GEMINI_API_KEY env var.
  *
- * Запуск:
- *   GEMINI_API_KEY=...  npm run eval                 # все кейсы
- *   GEMINI_API_KEY=...  npm run eval -- --case 1     # один кейс
+ * Usage:
+ *   GEMINI_API_KEY=...  npm run eval                 # all cases
+ *   GEMINI_API_KEY=...  npm run eval -- --case 1     # one case
  *   GEMINI_API_KEY=...  npm run eval -- --lang English
- *   npm run eval -- --list                           # список кейсов
- *   npm run eval -- --case 8                          # «пустой ключ» — работает без ключа
+ *   npm run eval -- --list                           # list the cases
+ *   npm run eval -- --case 8                          # "no key" — works without a key
  *
- * Флаги: --case <N>  --lang <Language>  --model <id>  --always  --list  --help
+ * Flags: --case <N>  --lang <Language>  --model <id>  --always  --list  --help
  */
 
 import { DEFAULT_MODEL, translate } from "../src/providers";
@@ -20,7 +21,7 @@ import { asTranslateError } from "../src/lib/errors";
 
 const ENV_KEY = "GEMINI_API_KEY";
 
-// --- крошечный ANSI-хелпер ---------------------------------------------------
+// --- tiny ANSI helper --------------------------------------------------------
 const useColor = process.stdout.isTTY;
 const paint = (code: string, s: string) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
 const bold = (s: string) => paint("1", s);
@@ -30,7 +31,7 @@ const red = (s: string) => paint("31", s);
 const yellow = (s: string) => paint("33", s);
 const cyan = (s: string) => paint("36", s);
 
-// --- разбор аргументов -------------------------------------------------------
+// --- argument parsing --------------------------------------------------------
 interface Args {
   caseNo?: number;
   lang?: string;
@@ -67,13 +68,13 @@ function parseArgs(argv: string[]): Args {
         args.help = true;
         break;
       default:
-        console.error(yellow(`Неизвестный флаг: ${a}`));
+        console.error(yellow(`Unknown flag: ${a}`));
     }
   }
   return args;
 }
 
-// --- кейсы §8 ----------------------------------------------------------------
+// --- §8 cases ----------------------------------------------------------------
 type Special = "emptyKey" | "langFlip";
 interface EvalCase {
   n: number;
@@ -87,43 +88,43 @@ interface EvalCase {
 const CASES: EvalCase[] = [
   {
     n: 1,
-    title: "Англ. слово «set» — многозначность",
+    title: "EN word «set» — polysemy",
     input: "set",
-    expect: "Перевод на RU + ПОЛНЫЙ блок: несколько значений, примеры в разных контекстах.",
+    expect: "RU translation + FULL block: several meanings, examples across different contexts.",
   },
   {
     n: 2,
-    title: "Рус. слово «замок» — омонимы",
+    title: "RU word «замок» — homonyms",
     input: "замок",
-    expect: "Перевод на EN + блок разводит castle / lock, примеры.",
+    expect: "EN translation + block separating castle / lock, with examples.",
   },
   {
     n: 3,
-    title: "Англ. идиома «break a leg»",
+    title: "EN idiom «break a leg»",
     input: "break a leg",
-    expect: "Перевод + блок: буквальное vs идиоматическое значение.",
+    expect: "Translation + block: literal vs idiomatic meaning.",
   },
   {
     n: 4,
-    title: "Простое предложение без подвохов",
+    title: "Plain sentence, no pitfalls",
     input: "I will call you tomorrow",
-    expect: "Перевод на RU, блок ОТСУТСТВУЕТ (explanation === null).",
+    expect: "RU translation, block ABSENT (explanation === null).",
     check: (r) => ({
       ok: r.explanation === null,
-      note: r.explanation === null ? "блок отсутствует" : "блок есть, а не должно быть",
+      note: r.explanation === null ? "block absent" : "block present but should not be",
     }),
   },
   {
     n: 5,
-    title: "Рус. многозначность «Он снял банк»",
+    title: "RU ambiguity «Он снял банк»",
     input: "Он снял банк",
-    expect: "Перевод на EN + блок поясняет неоднозначность (снял = выиграл банк / снял деньги / арендовал).",
+    expect: "EN translation + block flags the ambiguity (won the pot / withdrew money / rented the bank).",
   },
   {
     n: 6,
-    title: "Смешанный текст + термины",
+    title: "Mixed text + terms",
     input: "Запушь изменения в main и проверь CI",
-    expect: "Перевод на EN; push / main / CI сохранены, не переведены криво.",
+    expect: "EN translation; push / main / CI kept verbatim, not mistranslated.",
     check: (r) => {
       const t = r.translation;
       const keptMain = /\bmain\b/.test(t);
@@ -135,39 +136,39 @@ const CASES: EvalCase[] = [
   },
   {
     n: 7,
-    title: "Технический термин «retopology»",
+    title: "Technical term «retopology»",
     input: "retopology",
-    expect: "Перевод/транслитерация + пояснение (термин 3D).",
+    expect: "Translation/transliteration + explanation (3D term).",
   },
   {
     n: 8,
-    title: "Пустой Gemini-ключ",
+    title: "Empty Gemini key",
     input: "test",
-    expect: "Ядро бросает TranslateError kind=auth (UI ведёт в настройки). Работает без ключа.",
+    expect: "Core throws TranslateError kind=auth (UI leads to preferences). Works without a key.",
     special: "emptyKey",
     check: () => ({ ok: true, note: "" }),
   },
   {
     n: 9,
-    title: "Длинный абзац без подводных камней",
+    title: "Long paragraph, no pitfalls",
     input:
       "Вчера я весь день работал из дома. Утром ответил на письма, потом созвонился с командой и обсудил план на неделю. После обеда написал отчёт и отправил его руководителю, а вечером немного погулял и лёг спать пораньше.",
-    expect: "Перевод на EN; блок краткий или отсутствует.",
+    expect: "EN translation; block short or absent.",
   },
   {
     n: 10,
-    title: "Смена языка блока (explanationLanguage)",
+    title: "Block language switch (explanationLanguage)",
     input: "set",
-    expect: "Тот же ввод, что и кейс 1, но блок выходит на другом языке (флип от текущего).",
+    expect: "Same input as case 1, but the block comes out in a different language (flipped from current).",
     special: "langFlip",
   },
 ];
 
-// --- печать ------------------------------------------------------------------
+// --- printing ----------------------------------------------------------------
 function printResult(r: TranslateResult) {
-  console.log(bold("Перевод: ") + r.translation);
+  console.log(bold("Translation: ") + r.translation);
   if (r.explanation) {
-    console.log(bold("Блок:"));
+    console.log(bold("Block:"));
     console.log(
       r.explanation
         .split("\n")
@@ -175,12 +176,12 @@ function printResult(r: TranslateResult) {
         .join("\n"),
     );
   } else {
-    console.log(bold("Блок: ") + dim("[нет блока]"));
+    console.log(bold("Block: ") + dim("[no block]"));
   }
 }
 
 function verdict(ok: boolean, note: string) {
-  console.log((ok ? green("АВТО-ПРОВЕРКА: PASS") : red("АВТО-ПРОВЕРКА: FAIL")) + (note ? dim(` — ${note}`) : ""));
+  console.log((ok ? green("AUTO-CHECK: PASS") : red("AUTO-CHECK: FAIL")) + (note ? dim(` — ${note}`) : ""));
 }
 
 function flipLang(lang: string): string {
@@ -190,15 +191,15 @@ function flipLang(lang: string): string {
 async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
   console.log("");
   console.log(cyan("─".repeat(70)));
-  console.log(cyan(`КЕЙС ${c.n}. `) + bold(c.title));
-  console.log(dim("Ввод:     ") + JSON.stringify(c.input));
-  console.log(dim("Ожидание: ") + c.expect);
+  console.log(cyan(`CASE ${c.n}. `) + bold(c.title));
+  console.log(dim("Input:    ") + JSON.stringify(c.input));
+  console.log(dim("Expected: ") + c.expect);
 
-  // Кейс «пустой ключ» — не требует реального ключа.
+  // The "empty key" case does not need a real key.
   if (c.special === "emptyKey") {
     try {
       await translate(c.input, { ...base, apiKey: "" });
-      verdict(false, "ожидали ошибку auth, но запрос прошёл");
+      verdict(false, "expected an auth error, but the request went through");
     } catch (e) {
       const err = asTranslateError(e);
       verdict(err.kind === "auth", `kind=${err.kind}: ${err.message}`);
@@ -207,7 +208,7 @@ async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
   }
 
   if (!hasKey) {
-    console.log(yellow(`SKIP: нет ключа в env (${ENV_KEY}) — живой запрос пропущен.`));
+    console.log(yellow(`SKIP: no key in env (${ENV_KEY}) — live request skipped.`));
     return;
   }
 
@@ -222,30 +223,30 @@ async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
     const r = await translate(c.input, opts);
     const ms = Date.now() - started;
     printResult(r);
-    console.log(dim(`(${ms} мс)`));
+    console.log(dim(`(${ms} ms)`));
     if (c.check) {
       const v = c.check(r);
       verdict(v.ok, v.note);
     }
   } catch (e) {
     const err = asTranslateError(e);
-    console.log(red(`ОШИБКА: kind=${err.kind} — ${err.message}`));
+    console.log(red(`ERROR: kind=${err.kind} — ${err.message}`));
   }
 }
 
 function printHelp() {
-  console.log(`Polyglot eval — прогон тест-кейсов §8 без UI Raycast (только Gemini).
+  console.log(`Polyglot eval — run the §8 test cases without the Raycast UI (Gemini only).
 
-Флаги:
-  --case <N>            один кейс (1..10)
-  --lang <Language>     язык блока (дефолт: Russian)
-  --model <id>          переопределить модель Gemini
+Flags:
+  --case <N>            a single case (1..10)
+  --lang <Language>     block language (default: Russian)
+  --model <id>          override the Gemini model
   --always              alwaysExplain = true
-  --list                список кейсов
-  --help                эта справка
+  --list                list the cases
+  --help                this help
 
-Ключ через env: ${ENV_KEY}
-Пример: ${ENV_KEY}=xxx npm run eval -- --case 1`);
+Key via env: ${ENV_KEY}
+Example: ${ENV_KEY}=xxx npm run eval -- --case 1`);
 }
 
 async function main() {
@@ -256,7 +257,7 @@ async function main() {
     return;
   }
   if (args.list) {
-    console.log(bold("Кейсы §8:"));
+    console.log(bold("§8 cases:"));
     for (const c of CASES) {
       console.log(`  ${String(c.n).padStart(2)}. ${c.title}`);
     }
@@ -273,17 +274,17 @@ async function main() {
   };
 
   console.log(bold("Polyglot eval — Gemini"));
-  console.log(dim("Модель:       ") + base.model);
-  console.log(dim("Язык блока:   ") + base.explanationLanguage);
+  console.log(dim("Model:        ") + base.model);
+  console.log(dim("Block lang:   ") + base.explanationLanguage);
   console.log(dim("alwaysExplain:") + ` ${base.alwaysExplain}`);
-  console.log(dim("Ключ:         ") + (hasKey ? green("задан") : red(`нет (${ENV_KEY})`)));
+  console.log(dim("Key:          ") + (hasKey ? green("set") : red(`missing (${ENV_KEY})`)));
   if (!hasKey) {
-    console.log(yellow("Без ключа выполнится только кейс 8 (пустой ключ); остальные — SKIP."));
+    console.log(yellow("Without a key only case 8 (empty key) runs; the rest are SKIP."));
   }
 
   const selected = args.caseNo ? CASES.filter((c) => c.n === args.caseNo) : CASES;
   if (selected.length === 0) {
-    console.error(red(`Кейс ${args.caseNo} не найден (доступно 1..${CASES.length}).`));
+    console.error(red(`Case ${args.caseNo} not found (available 1..${CASES.length}).`));
     process.exit(1);
   }
 
@@ -292,7 +293,7 @@ async function main() {
   }
   console.log("");
   console.log(cyan("─".repeat(70)));
-  console.log(green("Готово."));
+  console.log(green("Done."));
 }
 
 void main();
