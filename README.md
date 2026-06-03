@@ -32,7 +32,8 @@ Runs on **Google Gemini** (free tier — the key is free, see below).
 
 Gemini has a free tier, but the API is **key-based** — there is no anonymous access. The key
 is free: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) → **Create
-API key** (a Google account is required). It starts with `AIza…`. The free-tier quota is more
+API key** (a Google account is required). Copy the generated key (it may start with `AIza…` or
+`AQ.…`). The free-tier quota is more
 than enough for personal use. The key is stored in Raycast's secure preference storage — no
 `.env`, no hardcoding.
 
