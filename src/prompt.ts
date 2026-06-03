@@ -1,11 +1,12 @@
 /**
- * Единый системный промпт — сердце расширения. Здесь живёт вся логика §2–§3:
- * билингв-флип RU⇄EN, правила «что не переводим», режим словаря и условия
- * показа поясняющего блока. Используется провайдером Gemini.
+ * The single system prompt — the heart of the extension. All of the §2–§3 logic
+ * lives here: the bilingual RU⇄EN flip, the "do not translate" rules, dictionary
+ * mode, and the conditions for showing the explanation block. Used by the
+ * Gemini provider.
  *
- * Промпт написан на английском намеренно: англоязычные инструкции дают модели
- * меньше неоднозначности. Язык ВЫВОДА блока задаётся параметром
- * explanationLanguage, а сам системный текст пользователь не видит.
+ * The prompt is intentionally written in English: English instructions give the
+ * model less ambiguity. The OUTPUT language of the block is set via the
+ * explanationLanguage parameter; the user never sees the system text itself.
  */
 
 import type { TranslateOptions } from "./providers/types";
@@ -81,14 +82,16 @@ ${blockRules}
 - Do NOT wrap the JSON in \`\`\` fences and do NOT add any text before or after it.`;
 }
 
-/** Пользовательское сообщение: ввод в делимитерах, чтобы модель не приняла его за инструкции. */
+/** User message: input wrapped in delimiters so the model doesn't read it as instructions. */
 export function buildUserPrompt(input: string): string {
+  // Neutralize a literal closing delimiter so the input can't break out of the fence.
+  const safe = input.replace(/<\/input>/gi, "<\\/input>");
   return [
     "Translate the text inside <input></input>, following every rule above.",
     "Return ONLY the JSON object — no preamble, no code fences.",
     "",
     "<input>",
-    input,
+    safe,
     "</input>",
   ].join("\n");
 }
