@@ -20,7 +20,7 @@ import {
 
 const API_KEY_URL = "https://aistudio.google.com/app/apikey";
 
-/** Резолвим preferences (manifest -> raycast-env.d.ts) в опции для ядра. */
+/** Resolve preferences (manifest -> raycast-env.d.ts) into core options. */
 function resolveOptions(): TranslateOptions {
   const prefs = getPreferenceValues<Preferences>();
   return {
@@ -29,6 +29,16 @@ function resolveOptions(): TranslateOptions {
     explanationLanguage: (prefs.explanationLanguage ?? "").trim() || "Russian",
     alwaysExplain: Boolean(prefs.alwaysExplain),
   };
+}
+
+/**
+ * Defang markdown images in model-derived text before rendering. Detail loads
+ * `![](url)` images automatically, which would beacon out to a URL the model
+ * (i.e. arbitrary input) can choose. Escaping `![` turns it into a plain,
+ * click-only link instead of an auto-loaded image.
+ */
+function defangImages(markdown: string): string {
+  return markdown.replace(/!\[/g, "\\![");
 }
 
 type ViewState =
@@ -45,53 +55,50 @@ function composeResult(result: TranslateResult): string {
 function errorTitle(error: TranslateError): string {
   switch (error.kind) {
     case "empty":
-      return "Пустой ввод";
+      return "Empty input";
     case "auth":
-      return "Нужен Gemini API-ключ";
+      return "Gemini API key required";
     case "rateLimit":
-      return "Лимит запросов";
+      return "Rate limit";
     case "timeout":
-      return "Таймаут";
+      return "Timed out";
     case "network":
-      return "Нет соединения";
+      return "No connection";
     case "parse":
-      return "Пустой ответ модели";
+      return "Empty model response";
     case "api":
-      return "Ошибка API";
+      return "API error";
   }
 }
 
 const ERROR_HINTS: Record<TranslateErrorKind, string> = {
-  empty: "Введите текст и повторите.",
-  auth: `Нужен Gemini API-ключ — он **бесплатный**: получите на [aistudio.google.com](${API_KEY_URL}) (Get API key) и вставьте в настройках расширения.`,
-  rateLimit:
-    "Слишком много запросов. Подождите несколько секунд и попробуйте снова.",
+  empty: "Enter some text and try again.",
+  auth: `A Gemini API key is required — it's **free**: get one at [aistudio.google.com](${API_KEY_URL}) (Get API key) and paste it into the extension preferences.`,
+  rateLimit: "Too many requests. Wait a few seconds and try again.",
   timeout:
-    "Gemini не ответил за 30 секунд. Проверьте сеть или попробуйте ещё раз.",
-  network: "Не удалось соединиться с Gemini. Проверьте интернет.",
-  parse: "Gemini вернул пустой или нечитаемый ответ. Попробуйте ещё раз.",
-  api: "Gemini вернул ошибку. Подробности ниже.",
+    "Gemini did not respond within 30 seconds. Check your connection or try again.",
+  network: "Could not reach Gemini. Check your internet connection.",
+  parse: "Gemini returned an empty or unreadable response. Try again.",
+  api: "Gemini returned an error. Details below.",
 };
 
 function errorMarkdown(error: TranslateError): string {
-  return [
-    `# ⚠️ ${errorTitle(error)}`,
-    "",
-    ERROR_HINTS[error.kind],
-    "",
-    "```",
-    error.message,
-    "```",
-  ].join("\n");
+  const lines = [`# ⚠️ ${errorTitle(error)}`, "", ERROR_HINTS[error.kind]];
+  // Only the generic "api" kind carries extra info beyond the hint (the HTTP status).
+  if (error.kind === "api") {
+    lines.push("", "```", error.message, "```");
+  }
+  return lines.join("\n");
 }
 
-/** Экран результата: запрос в useEffect, состояния loading/ok/error. */
+/** Result screen: the request runs in useEffect; states are loading/ok/error. */
 function ResultView({ input }: { input: string }) {
   const [state, setState] = useState<ViewState>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    setState({ status: "loading" });
 
     (async () => {
       try {
@@ -119,12 +126,12 @@ function ResultView({ input }: { input: string }) {
   }, [input]);
 
   if (state.status === "loading") {
-    const quoted = input.replace(/\n/g, "\n> ");
+    const quoted = defangImages(input).replace(/\n/g, "\n> ");
     return (
       <Detail
         isLoading
         navigationTitle="Polyglot"
-        markdown={`> ${quoted}\n\n_Перевожу…_`}
+        markdown={`> ${quoted}\n\n_Translating…_`}
       />
     );
   }
@@ -133,24 +140,24 @@ function ResultView({ input }: { input: string }) {
     const { error } = state;
     return (
       <Detail
-        navigationTitle="Polyglot — ошибка"
+        navigationTitle="Polyglot — error"
         markdown={errorMarkdown(error)}
         actions={
           <ActionPanel>
             <Action
-              title="Открыть настройки расширения"
+              title="Open Extension Preferences"
               icon={Icon.Gear}
               onAction={openExtensionPreferences}
             />
             {error.kind === "auth" && (
               <Action.OpenInBrowser
-                title="Получить бесплатный ключ (AI Studio)"
+                title="Get a Free Key (AI Studio)"
                 url={API_KEY_URL}
                 icon={Icon.Key}
               />
             )}
             <Action.CopyToClipboard
-              title="Скопировать текст ошибки"
+              title="Copy Error Text"
               content={error.message}
             />
           </ActionPanel>
@@ -160,22 +167,20 @@ function ResultView({ input }: { input: string }) {
   }
 
   const { result } = state;
+  const composed = composeResult(result);
   return (
     <Detail
       navigationTitle="Polyglot"
-      markdown={composeResult(result)}
+      markdown={defangImages(composed)}
       actions={
         <ActionPanel>
+          <Action.CopyToClipboard title="Copy Result" content={composed} />
           <Action.CopyToClipboard
-            title="Скопировать результат"
-            content={composeResult(result)}
-          />
-          <Action.CopyToClipboard
-            title="Скопировать только перевод"
+            title="Copy Translation Only"
             content={result.translation}
           />
           <Action
-            title="Открыть настройки расширения"
+            title="Open Extension Preferences"
             icon={Icon.Gear}
             onAction={openExtensionPreferences}
           />
@@ -185,7 +190,7 @@ function ResultView({ input }: { input: string }) {
   );
 }
 
-/** Команда: форма ввода -> push экрана результата. */
+/** Command: the input form -> pushes the result screen. */
 export default function Command() {
   const { push } = useNavigation();
   const [error, setError] = useState<string | undefined>();
@@ -195,12 +200,12 @@ export default function Command() {
       actions={
         <ActionPanel>
           <Action.SubmitForm
-            title="Перевести"
+            title="Translate"
             icon={Icon.Globe}
             onSubmit={(values: { text: string }) => {
               const text = (values.text ?? "").trim();
               if (text === "") {
-                setError("Введите текст");
+                setError("Enter some text");
                 return;
               }
               push(<ResultView input={text} />);
@@ -211,8 +216,8 @@ export default function Command() {
     >
       <Form.TextArea
         id="text"
-        title="Текст"
-        placeholder="Введите текст на русском или английском — направление определится автоматически…"
+        title="Text"
+        placeholder="Type text in Russian or English — the direction is detected automatically…"
         autoFocus
         error={error}
         onChange={() => {
