@@ -1,165 +1,173 @@
-# Polyglot — билингвальный переводчик для Raycast
+# Polyglot — a bilingual translator for Raycast
 
-Переводчик RU⇄EN, который **сам определяет направление** и при необходимости добавляет
-обучающий разбор. Не нужно выбирать «target language»: пишешь на русском — получаешь
-английский, пишешь на английском — получаешь русский. Под переводом, **по условию**,
-появляется поясняющий блок (значения, идиомы, ложные друзья, грамматика) — расширение
-работает не тупым переводчиком, а шпаргалкой для изучения языка.
+A RU⇄EN translator that **figures out the direction itself** and, when useful, adds a
+learning breakdown. There is no "target language" to pick: type Russian and you get English,
+type English and you get Russian. Below the translation, **when it helps**, an explanation
+block appears (meanings, idioms, false friends, grammar) — turning a plain translator into a
+study tool.
 
-Работает на **Google Gemini** (free tier — ключ бесплатный, см. ниже).
+Runs on **Google Gemini** (free tier — the key is free, see below).
 
-> 📸 _Скриншот: добавь сюда `metadata/translate.png` после первого запуска
-> (`npm run dev` → выполни команду → сделай скриншот окна результата)._
+> 📸 _Screenshot: drop `metadata/translate.png` here after the first run
+> (`npm run dev` → run the command → screenshot the result window)._
 
-## Что умеет
+## Features
 
-- **Авто-флип RU⇄EN.** Направление определяет сам LLM по доминирующему языку ввода.
-- **Защита терминов.** Имена собственные, бренды, стек разработки (React Native,
-  TypeScript, MobX, имена API/классов/хуков), код, идентификаторы и URL **не переводятся**.
-- **Режим словаря.** Одно слово → полный разбор: значения, транскрипция, формы, примеры.
-- **Условный поясняющий блок.** Для простых однозначных фраз блок не показывается, чтобы
-  не зашумлять; для многозначных слов, идиом, фразовых глаголов, сленга и т.п. — поясняет
-  именно проблемные места (см. [ниже](#поясняющий-блок)).
+- **Auto-flip RU⇄EN.** The model picks the direction from the dominant language of the input.
+- **Term protection.** Proper nouns, brands, dev-stack names (React Native, TypeScript, MobX,
+  API/class/hook names), code, identifiers and URLs are **kept verbatim**.
+- **Dictionary mode.** A single word yields a full entry: meanings, transcription, forms, examples.
+- **Conditional explanation block.** Plain, unambiguous sentences get no block (no noise);
+  polysemous words, idioms, phrasal verbs, slang, jargon and genuinely ambiguous phrases get
+  one that explains exactly the tricky spots (see [below](#the-explanation-block)).
 
-## Требования
+## Requirements
 
 - **Raycast** (macOS).
-- **Node.js ≥ 22.22.2.** Расширение собирается и на 22.19, но `@raycast/api` 1.104 в
-  `engines` просит ≥ 22.22.2 — если `npm run dev` будет ругаться, обнови Node (22.22+ или 24).
-- **Бесплатный Gemini API-ключ** — см. ниже.
+- **Node.js ≥ 22.22.2.** It also builds on 22.19, but `@raycast/api` 1.104 asks for ≥ 22.22.2
+  in `engines` — if `npm run dev` complains, upgrade Node (22.22+ or 24).
+- **A free Gemini API key** — see below.
 
-## Бесплатный ключ Gemini
+## Free Gemini key
 
-У Gemini есть бесплатный tier, но API **ключевой** — анонимного доступа нет. Ключ выдаётся
-даром: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) → *Get API key*
-(нужен Google-аккаунт). Free-tier квоты на личное использование хватает с запасом. Ключ
-хранится в защищённом хранилище Raycast (никаких `.env` и хардкода в коде).
+Gemini has a free tier, but the API is **key-based** — there is no anonymous access. The key
+is free: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) → **Create
+API key** (a Google account is required). It starts with `AIza…`. The free-tier quota is more
+than enough for personal use. The key is stored in Raycast's secure preference storage — no
+`.env`, no hardcoding.
 
-## Установка (локально, без публикации в Store)
+## Install (local, not published to the Store)
 
 ```bash
-git clone <твой-репозиторий> polyglot-raycast
+git clone https://github.com/MakarUrbanov/polyglot-raycast.git
 cd polyglot-raycast
 npm install
 npm run dev
 ```
 
-`npm run dev` собирает расширение и регистрирует команду **Translate** в запущенном Raycast
-(с хот-релоадом). Найди её в Raycast по слову `Translate` или `Polyglot`.
+`npm run dev` builds the extension and registers the **Translate** command in your running
+Raycast (with hot reload). Find it in Raycast by searching `Translate` or `Polyglot`.
 
-- Назначь глобальный хоткей: Raycast → Extensions → **Polyglot → Translate** → *Record Hotkey*.
-- Открой настройки команды (в Raycast: выдели команду и нажми `⌘ ,`, или действие
-  *Open Extension Preferences* / *Получить бесплатный ключ* прямо из экрана ошибки) и впиши ключ.
+- Assign a global hotkey: Raycast → Extensions → **Polyglot → Translate** → *Record Hotkey*.
+- Open the command's preferences (in Raycast: select the command and press `⌘ ,`, or use
+  *Open Extension Preferences* / *Get a Free Key* right from the error screen) and paste the key.
 
-Когда закончишь, `npm run dev` можно остановить (`Ctrl-C`) — **расширение останется
-установленным** в Raycast как локальное.
+When you're done, you can stop `npm run dev` (`Ctrl-C`) — the **extension stays installed** in
+Raycast as a local one.
 
-### Локальный dev-экстеншен vs Store
+### Local dev extension vs the Store
 
-Это локальное расширение **только для тебя**, в Raycast Store оно не публикуется.
-Импортированное через `npm run dev` расширение живёт у тебя на машине, **не обновляется из
-стора** и не зависит от него. Остановка dev-сервера не удаляет команду — она продолжает
-работать. Это ровно тот режим, который нужен для личного инструмента.
+This is a local extension **for personal use** — it is not published to the Raycast Store. An
+extension imported via `npm run dev` lives on your machine, **does not update from the Store**,
+and does not depend on it. Stopping the dev server does not remove the command — it keeps
+working. That is exactly the mode you want for a personal tool.
 
-## Настройка (Preferences)
+## Preferences
 
-Все настройки — штатные Raycast preferences (ключ хранится в защищённом хранилище Raycast):
+All settings are standard Raycast preferences (the key is stored in Raycast's secure storage):
 
-| Настройка | Тип | По умолчанию | Назначение |
+| Setting | Type | Default | Purpose |
 |---|---|---|---|
-| **Gemini API Key** | password | — | Бесплатный ключ — [aistudio.google.com](https://aistudio.google.com/app/apikey). |
-| **Gemini Model** | text | `gemini-2.5-flash` | ID модели Gemini. |
-| **Explanation Language** | text | `Russian` | Язык поясняющего блока (любой: `English`, `German`, …). |
-| **Always Explain** | checkbox | `off` | Форсировать блок даже для простых фраз. |
+| **Gemini API Key** | password | — | Free key — [aistudio.google.com](https://aistudio.google.com/app/apikey). |
+| **Gemini Model** | text | `gemini-2.5-flash` | Gemini model ID. |
+| **Explanation Language** | text | `Russian` | Language of the explanation block (any: `English`, `German`, …). |
+| **Always Explain** | checkbox | `off` | Force the block even for simple phrases. |
 
-Модель задаётся строкой-идентификатором — она быстро обновляется, так что при выходе новой
-версии достаточно поменять значение в настройке, не трогая код. По умолчанию `gemini-2.5-flash`
-(прошлый flash: бесплатен на free tier и для перевода с запасом). Тоже бесплатны на free tier:
-`gemini-2.5-flash-lite`, `gemini-3.5-flash` (мощнее, но на платном tier заметно дороже).
-`gemini-3.1-pro-preview` — платный.
+The model is just a string ID, so when a new version ships you change the preference without
+touching code. Free-tier models: `gemini-2.5-flash` (default), `gemini-2.5-flash-lite`,
+`gemini-3.5-flash` (more capable, but noticeably pricier on the paid tier).
 
-Если ключ пуст или невалиден — команда покажет понятное сообщение с действиями **Get a free key
-(AI Studio)** и **Open Extension Preferences**.
+If the key is empty or invalid, the command shows a clear message with **Get a Free Key (AI
+Studio)** and **Open Extension Preferences** actions.
 
-## Поясняющий блок
+## The explanation block
 
-Блок появляется **не всегда** — решает сам LLM по правилам:
+The block is **not always shown** — the model decides:
 
-- **одно слово / короткая идиома (≤ ~3 слов)** → блок всегда и в полном объёме (словарь);
-- **предложение с многозначностью / идиомой / фразовым глаголом / сленгом / термином /
-  ложным другом / нетривиальным регистром** → блок поясняет именно эти места;
-- **простое однозначное предложение** → блока нет (только перевод);
-- **длинный текст** → блок кратко и только если есть что пояснить.
+- **a single word / short idiom (≤ ~3 words)** → always, in full (dictionary mode);
+- **a sentence with a polysemous word / idiom / phrasal verb / slang / term / false friend /
+  non-obvious register, or genuine ambiguity** → a block explaining exactly those spots;
+- **a plain, unambiguous sentence** → no block (translation only);
+- **a long text** → a short block only if there's something worth explaining.
 
-Структура блока (секции опциональны, пустые опускаются): часть речи и формы · транскрипция ·
-значения · примеры в контексте · нюансы/коннотации/регистр · синонимы/антонимы ·
-идиома/фразовый глагол · грамматическая заметка. Весь блок — на языке `Explanation Language`,
-кроме самих слов/примеров на изучаемых языках.
+Block sections (all optional, empty ones dropped): part of speech & forms · pronunciation ·
+meanings · examples in context · nuance/connotation/register · synonyms/antonyms ·
+idiom/phrasal verb · grammar note. The whole block is in `Explanation Language`, except the
+example words/sentences in the studied languages.
 
-Чекбокс **Always Explain** заставляет показывать блок даже на простых фразах.
+The **Always Explain** checkbox forces a block even on simple phrases.
 
-## Проверка логики без UI (eval-харнесс)
+## Testing the logic without the UI (eval harness)
 
-Логика перевода и блока (главный риск) валидируется **headless**, в обход модалки Raycast —
-ядро `translate()` дёргается напрямую, ключ берётся из переменной окружения:
+The translation/block logic (the main risk) is validated **headless**, bypassing the Raycast
+modal — the core `translate()` is called directly, with the key from an env var:
 
 ```bash
-# все 10 кейсов §8
+# all 10 test cases
 GEMINI_API_KEY=... npm run eval
 
-# конкретный кейс / язык блока / модель
+# a specific case / block language / model
 GEMINI_API_KEY=... npm run eval -- --case 1
 GEMINI_API_KEY=... npm run eval -- --lang English
-GEMINI_API_KEY=... npm run eval -- --model gemini-2.5-flash
+GEMINI_API_KEY=... npm run eval -- --model gemini-2.5-flash-lite
 
-npm run eval -- --list      # список кейсов
-npm run eval -- --case 8    # «пустой ключ» — работает без ключа
-npm run eval -- --help      # все флаги
+npm run eval -- --list      # list the cases
+npm run eval -- --case 8    # "empty key" — works without a key
+npm run eval -- --help      # all flags
 ```
 
-Кейсы 4 / 6 / 8 имеют авто-проверки (блок отсутствует / термины сохранены / ошибка auth);
-остальные выводятся для глазной проверки. Env-ключ: `GEMINI_API_KEY`.
+Cases 4 / 6 / 8 are auto-checked (block absent / terms kept / auth error); the rest are printed
+for eyeballing. Env key: `GEMINI_API_KEY`.
 
-## Архитектура
+## Architecture
 
 ```
 src/
-  translate.tsx        # единственный файл, знающий про @raycast/api: Form → Detail
-  prompt.ts            # системный промпт: флип, защита терминов, правила блока §3
+  translate.tsx        # the only file that imports @raycast/api: Form → Detail
+  prompt.ts            # system prompt: the flip, term protection, block rules
   providers/
-    index.ts           # точка входа translate() + дефолтная модель
+    index.ts           # translate() entry point + default model
     types.ts           # TranslateOptions / TranslateResult
-    gemini.ts          # Gemini generateContent (responseMimeType json, ключ в заголовке)
+    gemini.ts          # Gemini generateContent (responseMimeType json, key in header)
   lib/
-    http.ts            # postJson: таймаут (AbortController) + маппинг статусов
-    parse.ts           # безопасный разбор JSON модели с фолбэком
-    errors.ts          # TranslateError с дискриминантом kind
+    http.ts            # postJson: timeout (AbortController) + status mapping
+    parse.ts           # defensive JSON parsing with a fallback
+    errors.ts          # TranslateError discriminated by kind
 scripts/
-  eval.ts              # headless-прогон §8
+  eval.ts              # headless test-case runner
 ```
 
-Ключевое: **ядро (`prompt`/`providers`/`lib`) не зависит от `@raycast/api`** — провайдер
-получает `apiKey`/`model` явными аргументами (DI). Поэтому одну и ту же `translate()` гоняет и
-UI, и eval-харнесс. Перевод и блок приходят **одним запросом** в виде
-`{ translation, explanation | null }`; разбор устойчив к своеволию модели (срез ```-обёрток,
-вырезание первого JSON-объекта, фолбэк на сырой текст). Стриминга нет — один запрос, ждём
-полный ответ. Слой `gemini.ts` оставлен как граница: вернуть других провайдеров = достать их
-модули из git-истории и поднять диспетчер.
+The key point: the **core (`prompt`/`providers`/`lib`) does not depend on `@raycast/api`** —
+the provider receives `apiKey`/`model` as explicit arguments (DI). The same `translate()` runs
+in both the UI and the eval harness. The translation and the block come back in **one request**
+as `{ translation, explanation | null }`; parsing is resilient to model misbehavior (strips
+``` fences, extracts the first JSON object, falls back to raw text). No streaming — one request,
+wait for the full response. The `gemini.ts` layer is kept as a seam: re-adding other providers
+means restoring their modules from git history and adding a dispatcher.
 
-## Скрипты
+## Security notes
 
-| Команда | Что делает |
+- The API key travels only in the `x-goog-api-key` request header — never in the URL, logs, or
+  the UI, and it is never committed (`.gitignore` covers generated files; preferences hold it).
+- Model output is treated as untrusted: it is rendered as markdown in `Detail`, and image
+  syntax (`![](…)`) is defanged so a crafted translation can't auto-load a remote image.
+- The `<input>…</input>` delimiter limits prompt injection; impact is bounded since the only
+  actor is the user translating their own text.
+
+## Scripts
+
+| Command | What it does |
 |---|---|
-| `npm run dev` | dev-режим с хот-релоадом, регистрирует команду в Raycast |
-| `npm run build` | прод-сборка (`ray build`) |
-| `npm run lint` | `ray lint` (ESLint + Prettier + валидация манифеста) |
-| `npm run fix-lint` | авто-фикс линта/форматирования |
-| `npm run eval` | headless-прогон тест-кейсов §8 (Gemini) |
+| `npm run dev` | dev mode with hot reload, registers the command in Raycast |
+| `npm run build` | production build (`ray build`) |
+| `npm run lint` | `ray lint` (ESLint + Prettier + manifest validation) |
+| `npm run fix-lint` | auto-fix lint/formatting |
+| `npm run eval` | headless run of the test cases (Gemini) |
 
-> ℹ️ `npm run lint` сейчас флагает одно правило — `author` в `package.json` (placeholder
-> `makarurbanov`) не зарегистрирован в реестре Raycast. На локальную работу это не влияет;
-> для зелёного линта впиши свой Raycast-username (Raycast → Settings → Account).
+> Note: `npm run lint` flags one rule — the `author` field (`makarurbanov`) is not registered
+> in the Raycast user registry. It doesn't affect local use; set your own Raycast username
+> (Raycast → Settings → Account) for a clean lint.
 
-## Лицензия
+## License
 
 [MIT](LICENSE).
