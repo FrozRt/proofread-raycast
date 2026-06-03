@@ -1,0 +1,73 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "polyglot",
+  "title": "Polyglot",
+  "description": "Bilingual RU⇄EN translator: detects the direction itself and adds a learning breakdown",
+  "icon": "extension-icon.png",
+  "author": "makarurbanov",
+  "categories": ["Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "translate",
+      "title": "Translate",
+      "subtitle": "Polyglot",
+      "description": "Translate RU⇄EN with automatic direction and an explanation block",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "apiKey",
+      "title": "Gemini API Key",
+      "description": "Free key — aistudio.google.com → Get API key (free tier)",
+      "type": "password",
+      "required": false
+    },
+    {
+      "name": "model",
+      "title": "Gemini Model",
+      "description": "Gemini model ID. Default gemini-2.5-flash. Free tier: gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash",
+      "type": "textfield",
+      "required": false,
+      "default": "gemini-2.5-flash"
+    },
+    {
+      "name": "explanationLanguage",
+      "title": "Explanation Language",
+      "description": "Language of the explanation block (e.g. Russian, English, German)",
+      "type": "textfield",
+      "required": false,
+      "default": "Russian"
+    },
+    {
+      "name": "alwaysExplain",
+      "title": "Always Explain",
+      "label": "Always show the explanation block",
+      "description": "Force the block even for simple, unambiguous phrases (overrides the automatic display rules)",
+      "type": "checkbox",
+      "required": false,
+      "default": false
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.19",
+    "@raycast/utils": "^2.2.5"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix",
+    "eval": "tsx scripts/eval.ts"
+  }
+}
