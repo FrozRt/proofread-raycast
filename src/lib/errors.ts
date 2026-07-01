@@ -1,13 +1,13 @@
 /**
- * A single translation error type discriminated by `kind`.
+ * A single proofreading error type discriminated by `kind`.
  *
  * One class with a union `kind` field instead of a class hierarchy
  * (AuthError/RateLimitError/…): the UI maps it with an exhaustive
  * `switch (error.kind)` rather than an instanceof chain, with less boilerplate.
  */
 
-export type TranslateErrorKind =
-  | "empty" // empty input — nothing to translate
+export type ProofreadErrorKind =
+  | "empty" // empty input — nothing to proofread
   | "auth" // key missing or rejected (401/403)
   | "rateLimit" // 429
   | "timeout" // the AbortController timeout fired
@@ -15,37 +15,37 @@ export type TranslateErrorKind =
   | "parse" // the service returned an empty/unparseable envelope
   | "api"; // any other non-2xx response
 
-export interface TranslateErrorMeta {
+export interface ProofreadErrorMeta {
   status?: number;
   cause?: unknown;
 }
 
-export class TranslateError extends Error {
-  readonly kind: TranslateErrorKind;
+export class ProofreadError extends Error {
+  readonly kind: ProofreadErrorKind;
   readonly status?: number;
 
   constructor(
-    kind: TranslateErrorKind,
+    kind: ProofreadErrorKind,
     message: string,
-    meta: TranslateErrorMeta = {},
+    meta: ProofreadErrorMeta = {},
   ) {
     super(
       message,
       meta.cause !== undefined ? { cause: meta.cause } : undefined,
     );
-    this.name = "TranslateError";
+    this.name = "ProofreadError";
     this.kind = kind;
     this.status = meta.status;
   }
 }
 
-/** Normalize any caught value to a TranslateError (for uniform UI handling). */
-export function asTranslateError(error: unknown): TranslateError {
-  if (error instanceof TranslateError) {
+/** normalize any caught value to a ProofreadError (for uniform UI handling). */
+export function asProofreadError(error: unknown): ProofreadError {
+  if (error instanceof ProofreadError) {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
-  return new TranslateError("api", message, { cause: error });
+  return new ProofreadError("api", message, { cause: error });
 }
 
 /**
@@ -57,22 +57,22 @@ export function errorFromStatus(
   label: string,
   status: number,
   body: string,
-): TranslateError {
+): ProofreadError {
   if (status === 401 || status === 403) {
-    return new TranslateError(
+    return new ProofreadError(
       "auth",
       `${label} rejected the API key (HTTP ${status}).`,
       { status, cause: body },
     );
   }
   if (status === 429) {
-    return new TranslateError(
+    return new ProofreadError(
       "rateLimit",
       `${label} rate limit exceeded (HTTP 429).`,
       { status, cause: body },
     );
   }
-  return new TranslateError("api", `${label} API error: HTTP ${status}.`, {
+  return new ProofreadError("api", `${label} API error: HTTP ${status}.`, {
     status,
     cause: body,
   });

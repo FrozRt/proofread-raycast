@@ -1,23 +1,23 @@
 /**
- * Headless run of the §8 test cases, bypassing the Raycast UI (Gemini only).
+ * Headless run of the proofreading test cases, bypassing the Raycast UI (Gemini only).
  *
  * Validates the prompt LOGIC (the main risk) directly through the core
- * `translate()`, without the Raycast modal and without preferences. The key
+ * `proofread()`, without the Raycast modal and without preferences. The key
  * comes from the GEMINI_API_KEY env var.
  *
  * Usage:
  *   GEMINI_API_KEY=...  npm run eval                 # all cases
  *   GEMINI_API_KEY=...  npm run eval -- --case 1     # one case
- *   GEMINI_API_KEY=...  npm run eval -- --lang English
+ *   GEMINI_API_KEY=...  npm run eval -- --formal     # force formal mode
  *   npm run eval -- --list                           # list the cases
  *   npm run eval -- --case 8                          # "no key" — works without a key
  *
- * Flags: --case <N>  --lang <Language>  --model <id>  --always  --list  --help
+ * Flags: --case <N>  --model <id>  --formal  --list  --help
  */
 
-import { DEFAULT_MODEL, translate } from "../src/providers";
-import type { TranslateOptions, TranslateResult } from "../src/providers/types";
-import { asTranslateError } from "../src/lib/errors";
+import { DEFAULT_MODEL, proofread } from "../src/providers";
+import type { ProofreadOptions, ProofreadResult } from "../src/providers/types";
+import { asProofreadError } from "../src/lib/errors";
 
 const ENV_KEY = "GEMINI_API_KEY";
 
@@ -34,15 +34,14 @@ const cyan = (s: string) => paint("36", s);
 // --- argument parsing --------------------------------------------------------
 interface Args {
   caseNo?: number;
-  lang?: string;
   model?: string;
-  always: boolean;
+  formal: boolean;
   list: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { always: false, list: false, help: false };
+  const args: Args = { formal: false, list: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const valueOf = (inline?: string) => inline ?? argv[++i];
@@ -51,14 +50,11 @@ function parseArgs(argv: string[]): Args {
       case "--case":
         args.caseNo = Number(valueOf(inline));
         break;
-      case "--lang":
-        args.lang = valueOf(inline);
-        break;
       case "--model":
         args.model = valueOf(inline);
         break;
-      case "--always":
-        args.always = true;
+      case "--formal":
+        args.formal = true;
         break;
       case "--list":
         args.list = true;
@@ -74,59 +70,71 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-// --- §8 cases ----------------------------------------------------------------
-type Special = "emptyKey" | "langFlip";
+// --- cases -------------------------------------------------------------------
+type Special = "emptyKey";
 interface EvalCase {
   n: number;
   title: string;
   input: string;
   expect: string;
   special?: Special;
-  check?: (r: TranslateResult) => { ok: boolean; note: string };
+  /** When set, the case is only meaningful in this mode. */
+  onlyFormal?: boolean;
+  check?: (r: ProofreadResult) => { ok: boolean; note: string };
 }
 
 const CASES: EvalCase[] = [
   {
     n: 1,
-    title: "EN word «set» — polysemy",
-    input: "set",
-    expect: "RU translation + FULL block: several meanings, examples across different contexts.",
+    title: "EN — basic grammar/spelling fix",
+    input: "she dont has no time for this tasks",
+    expect: "Grammar/spelling corrected, same meaning, same casual tone.",
   },
   {
     n: 2,
-    title: "RU word «замок» — homonyms",
-    input: "замок",
-    expect: "EN translation + block separating castle / lock, with examples.",
+    title: "EN — keep informal register (default mode)",
+    input: "hey, can u send me teh file wen your free?",
+    expect: 'Fix spelling (u/teh/wen/your), but keep "hey"/"u"→"you" casual; do NOT formalize to "Hello".',
+    check: (r) => {
+      const formalized = /^hello\b/i.test(r.text.trim());
+      return { ok: !formalized, note: formalized ? 'formalized "hey"→"Hello" (should not)' : "kept casual greeting" };
+    },
   },
   {
     n: 3,
-    title: "EN idiom «break a leg»",
-    input: "break a leg",
-    expect: "Translation + block: literal vs idiomatic meaning.",
+    title: "EN — do not capitalize lowercase sentence start",
+    input: "i went to the store. i bought milk",
+    expect: 'Leading "i" → "I" (pronoun), but sentence-initial lowercase words that are not "i" stay lowercase; no forced capitalization of the first word.',
   },
   {
     n: 4,
-    title: "Plain sentence, no pitfalls",
-    input: "I will call you tomorrow",
-    expect: "RU translation, block ABSENT (explanation === null).",
-    check: (r) => ({
-      ok: r.explanation === null,
-      note: r.explanation === null ? "block absent" : "block present but should not be",
-    }),
+    title: "EN — no trailing period added to final sentence",
+    input: "thanks for the update",
+    expect: "Single sentence with no trailing period → stays without a trailing period.",
+    check: (r) => {
+      const ok = !r.text.trim().endsWith(".");
+      return { ok, note: ok ? "no trailing period" : "added a trailing period (should not)" };
+    },
   },
   {
     n: 5,
-    title: "RU ambiguity «Он снял банк»",
-    input: "Он снял банк",
-    expect: "EN translation + block flags the ambiguity (won the pot / withdrew money / rented the bank).",
+    title: "RU — grammar/punctuation fix",
+    input: "я хочу пойти в магазин но у меня нет времени",
+    expect: "Comma before «но»; stays Russian; not translated; casual tone kept.",
   },
   {
     n: 6,
-    title: "Mixed text + terms",
-    input: "Запушь изменения в main и проверь CI",
-    expect: "EN translation; push / main / CI kept verbatim, not mistranslated.",
+    title: "ES — grammar/accents fix",
+    input: "el no sabe donde esta la biblioteca",
+    expect: "Accents/grammar fixed (él, dónde, está); stays Spanish; not translated.",
+  },
+  {
+    n: 7,
+    title: "Keep technical terms verbatim",
+    input: "please push you're changes to main and check teh CI",
+    expect: 'Fix "you\'re"→"your", "teh"→"the"; keep push / main / CI verbatim.',
     check: (r) => {
-      const t = r.translation;
+      const t = r.text;
       const keptMain = /\bmain\b/.test(t);
       const keptCI = /\bCI\b/.test(t);
       const keptPush = /push/i.test(t);
@@ -135,60 +143,38 @@ const CASES: EvalCase[] = [
     },
   },
   {
-    n: 7,
-    title: "Technical term «retopology»",
-    input: "retopology",
-    expect: "Translation/transliteration + explanation (3D term).",
-  },
-  {
     n: 8,
     title: "Empty Gemini key",
     input: "test",
-    expect: "Core throws TranslateError kind=auth (UI leads to preferences). Works without a key.",
+    expect: "Core throws ProofreadError kind=auth (UI leads to preferences). Works without a key.",
     special: "emptyKey",
     check: () => ({ ok: true, note: "" }),
   },
   {
     n: 9,
-    title: "Long paragraph, no pitfalls",
-    input:
-      "Вчера я весь день работал из дома. Утром ответил на письма, потом созвонился с командой и обсудил план на неделю. После обеда написал отчёт и отправил его руководителю, а вечером немного погулял и лёг спать пораньше.",
-    expect: "EN translation; block short or absent.",
+    title: "FORMAL — raise casual to formal register",
+    input: "hey, gonna be a bit late, sry",
+    expect: 'In formal mode: rewritten formally (e.g. "Hello", "going to", "apologies"). Only meaningful with --formal.',
+    onlyFormal: true,
   },
   {
     n: 10,
-    title: "Block language switch (explanationLanguage)",
-    input: "set",
-    expect: "Same input as case 1, but the block comes out in a different language (flipped from current).",
-    special: "langFlip",
+    title: "Already-correct text is left unchanged",
+    input: "The meeting is scheduled for Monday at 9 a.m.",
+    expect: "Correct input returned essentially unchanged.",
   },
 ];
 
 // --- printing ----------------------------------------------------------------
-function printResult(r: TranslateResult) {
-  console.log(bold("Translation: ") + r.translation);
-  if (r.explanation) {
-    console.log(bold("Block:"));
-    console.log(
-      r.explanation
-        .split("\n")
-        .map((l) => "  " + l)
-        .join("\n"),
-    );
-  } else {
-    console.log(bold("Block: ") + dim("[no block]"));
-  }
+function printResult(r: ProofreadResult) {
+  console.log(bold("Corrected: ") + r.text);
 }
 
 function verdict(ok: boolean, note: string) {
   console.log((ok ? green("AUTO-CHECK: PASS") : red("AUTO-CHECK: FAIL")) + (note ? dim(` — ${note}`) : ""));
 }
 
-function flipLang(lang: string): string {
-  return lang.trim().toLowerCase() === "russian" ? "English" : "Russian";
-}
-
-async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
+async function runCase(c: EvalCase, base: ProofreadOptions, hasKey: boolean) {
   console.log("");
   console.log(cyan("─".repeat(70)));
   console.log(cyan(`CASE ${c.n}. `) + bold(c.title));
@@ -198,12 +184,17 @@ async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
   // The "empty key" case does not need a real key.
   if (c.special === "emptyKey") {
     try {
-      await translate(c.input, { ...base, apiKey: "" });
+      await proofread(c.input, { ...base, apiKey: "" });
       verdict(false, "expected an auth error, but the request went through");
     } catch (e) {
-      const err = asTranslateError(e);
+      const err = asProofreadError(e);
       verdict(err.kind === "auth", `kind=${err.kind}: ${err.message}`);
     }
+    return;
+  }
+
+  if (c.onlyFormal && !base.formal) {
+    console.log(yellow("SKIP: only meaningful with --formal."));
     return;
   }
 
@@ -212,15 +203,9 @@ async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
     return;
   }
 
-  const opts: TranslateOptions =
-    c.special === "langFlip" ? { ...base, explanationLanguage: flipLang(base.explanationLanguage) } : base;
-  if (c.special === "langFlip") {
-    console.log(dim(`(explanationLanguage: ${base.explanationLanguage} → ${opts.explanationLanguage})`));
-  }
-
   try {
     const started = Date.now();
-    const r = await translate(c.input, opts);
+    const r = await proofread(c.input, base);
     const ms = Date.now() - started;
     printResult(r);
     console.log(dim(`(${ms} ms)`));
@@ -229,19 +214,18 @@ async function runCase(c: EvalCase, base: TranslateOptions, hasKey: boolean) {
       verdict(v.ok, v.note);
     }
   } catch (e) {
-    const err = asTranslateError(e);
+    const err = asProofreadError(e);
     console.log(red(`ERROR: kind=${err.kind} — ${err.message}`));
   }
 }
 
 function printHelp() {
-  console.log(`Polyglot eval — run the §8 test cases without the Raycast UI (Gemini only).
+  console.log(`Proofread eval — run the test cases without the Raycast UI (Gemini only).
 
 Flags:
   --case <N>            a single case (1..10)
-  --lang <Language>     block language (default: Russian)
   --model <id>          override the Gemini model
-  --always              alwaysExplain = true
+  --formal              use the formal proofreading mode
   --list                list the cases
   --help                this help
 
@@ -257,7 +241,7 @@ async function main() {
     return;
   }
   if (args.list) {
-    console.log(bold("§8 cases:"));
+    console.log(bold("Cases:"));
     for (const c of CASES) {
       console.log(`  ${String(c.n).padStart(2)}. ${c.title}`);
     }
@@ -266,18 +250,16 @@ async function main() {
 
   const apiKey = (process.env[ENV_KEY] ?? "").trim();
   const hasKey = apiKey !== "";
-  const base: TranslateOptions = {
+  const base: ProofreadOptions = {
     apiKey,
     model: args.model ?? DEFAULT_MODEL,
-    explanationLanguage: args.lang ?? process.env.POLYGLOT_EXPLANATION_LANGUAGE ?? "Russian",
-    alwaysExplain: args.always,
+    formal: args.formal,
   };
 
-  console.log(bold("Polyglot eval — Gemini"));
-  console.log(dim("Model:        ") + base.model);
-  console.log(dim("Block lang:   ") + base.explanationLanguage);
-  console.log(dim("alwaysExplain:") + ` ${base.alwaysExplain}`);
-  console.log(dim("Key:          ") + (hasKey ? green("set") : red(`missing (${ENV_KEY})`)));
+  console.log(bold("Proofread eval — Gemini"));
+  console.log(dim("Model:  ") + base.model);
+  console.log(dim("Mode:   ") + (base.formal ? "formal" : "keep register"));
+  console.log(dim("Key:    ") + (hasKey ? green("set") : red(`missing (${ENV_KEY})`)));
   if (!hasKey) {
     console.log(yellow("Without a key only case 8 (empty key) runs; the rest are SKIP."));
   }

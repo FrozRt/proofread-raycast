@@ -17,3 +17,5 @@ raycast-env.d.ts
 
 # macOS
 .DS_Store
+
+.idea

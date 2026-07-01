@@ -1,11 +1,21 @@
-/** Google Gemini generateContent. The key goes in the x-goog-api-key header (not the URL).
- *  JSON via generationConfig.responseMimeType. */
+/** Google Gemini generateContent. The key goes in the x-goog-api-key header (not the URL). */
 
 import { buildSystemPrompt, buildUserPrompt } from "../prompt";
 import { postJson } from "../lib/http";
 import { parseModelOutput } from "../lib/parse";
-import { TranslateError } from "../lib/errors";
-import type { TranslateOptions, TranslateResult } from "./types";
+import { ProofreadError } from "../lib/errors";
+import type { ProofreadOptions, ProofreadResult } from "./types";
+
+/**
+ * A generous output-token cap for a proofread. The corrected text is roughly the
+ * length of the input, so we estimate tokens from characters (~1 token per 3
+ * chars, headroom for multi-byte scripts) and pad it, with a sane floor so short
+ * inputs still get plenty of room.
+ */
+function outputCap(input: string): number {
+  const estimatedTokens = Math.ceil(input.length / 3);
+  return Math.max(256, estimatedTokens * 2);
+}
 
 function endpoint(model: string): string {
   // `model` comes from a user-editable preference; encodeURIComponent keeps it
@@ -18,14 +28,25 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-export async function translateWithGemini(
+export async function proofreadWithGemini(
   input: string,
-  opts: TranslateOptions,
-): Promise<TranslateResult> {
+  opts: ProofreadOptions,
+): Promise<ProofreadResult> {
   const body = {
-    systemInstruction: { parts: [{ text: buildSystemPrompt(opts) }] },
+    systemInstruction: {
+      parts: [{ text: buildSystemPrompt({ formal: opts.formal }) }],
+    },
     contents: [{ role: "user", parts: [{ text: buildUserPrompt(input) }] }],
-    generationConfig: { responseMimeType: "application/json" },
+    generationConfig: {
+      // Proofreading is mechanical — no reasoning needed. thinkingBudget: 0
+      // disables Gemini 2.5 Flash's "thinking" phase, roughly halving latency
+      // with no quality loss for grammar/spelling fixes. (Ignored by models
+      // that don't support thinking, so it's safe across model choices.)
+      thinkingConfig: { thinkingBudget: 0 },
+      // The corrected text is ~the length of the input; cap output so the model
+      // can't ramble, sized generously off the input length.
+      maxOutputTokens: outputCap(input),
+    },
   };
 
   const json = (await postJson({
@@ -37,7 +58,7 @@ export async function translateWithGemini(
   })) as GeminiResponse;
 
   if (json.promptFeedback?.blockReason) {
-    throw new TranslateError(
+    throw new ProofreadError(
       "api",
       `Gemini blocked the request: ${json.promptFeedback.blockReason}.`,
     );
@@ -47,7 +68,7 @@ export async function translateWithGemini(
     .map((part) => part.text ?? "")
     .join("");
   if (text.trim() === "") {
-    throw new TranslateError("parse", "Gemini returned an empty response.");
+    throw new ProofreadError("parse", "Gemini returned an empty response.");
   }
 
   return parseModelOutput(text);
