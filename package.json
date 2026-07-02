@@ -35,10 +35,10 @@
     {
       "name": "model",
       "title": "Gemini Model",
-      "description": "Gemini model ID. Default gemini-2.5-flash. Free-tier options: gemini-2.5-flash, gemini-2.5-flash-lite (fastest), gemini-2.0-flash, gemini-2.0-flash-lite",
+      "description": "Gemini model ID. Default gemini-3.1-flash-lite. Other options: gemini-3.5-flash, gemini-2.5-flash, gemini-2.5-flash-lite",
       "type": "textfield",
       "required": false,
-      "default": "gemini-2.5-flash"
+      "default": "gemini-3.1-flash-lite"
     }
   ],
   "dependencies": {

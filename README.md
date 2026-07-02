@@ -51,19 +51,19 @@ Studio)** and **Open Extension Preferences** actions.
 | Setting | Type | Default | Purpose |
 |---|---|---|---|
 | **Gemini API Key** | password | — | Free key — [aistudio.google.com](https://aistudio.google.com/app/apikey). |
-| **Gemini Model** | text | `gemini-2.5-flash` | Gemini model ID. |
+| **Gemini Model** | text | `gemini-3.1-flash-lite` | Gemini model ID. |
 
-### Free-tier Gemini models
+### Gemini models
 
 The **Gemini Model** preference is just a string ID, so you can switch models without touching
-code. These are available on Gemini's free tier and are the sensible choices for proofreading:
+code. Sensible choices for proofreading:
 
 | Model ID | Notes for proofreading |
 |---|---|
-| `gemini-2.5-flash` | **Default.** Best quality on the free tier; fast enough for everyday use. |
-| `gemini-2.5-flash-lite` | **Fastest.** Smaller and quicker than `2.5-flash` — more than capable for grammar/spelling/punctuation. Try this if you want the snappiest turnaround. |
-| `gemini-2.0-flash` | Previous-generation flash. Still fast and free; slightly older than the 2.5 line. |
-| `gemini-2.0-flash-lite` | Previous-generation lite variant — the leanest 2.0 option. |
+| `gemini-3.1-flash-lite` | **Default.** Newest lite model — frontier-class quality at low cost, fast, with generous rate limits. |
+| `gemini-3.5-flash` | More capable; use if you want the strongest results and don't mind slightly higher latency/cost. |
+| `gemini-2.5-flash` | Previous-generation flash; solid, but has a low free-tier daily request cap. |
+| `gemini-2.5-flash-lite` | Previous-generation lite variant — fast and cheap. |
 
 Newer model IDs work the same way — just paste the ID into the preference. Because proofreading
 is a mechanical task, the extension also disables the model's internal "thinking" step
