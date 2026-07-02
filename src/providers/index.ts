@@ -9,7 +9,7 @@ import { proofreadWithGemini } from "./gemini";
 import type { ProofreadOptions, ProofreadResult } from "./types";
 
 /** Default Gemini model — fallback when the preference field is empty. */
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
 export async function proofread(
   input: string,
