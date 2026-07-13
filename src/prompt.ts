@@ -23,6 +23,10 @@ const COMMON_RULES = `## Keep verbatim
 - Proper nouns, brand and product names.
 - Technical/developer terms and identifiers: code, identifiers, file paths, URLs, version numbers, CLI commands (push, merge, rebase, main, CI, ...).
 
+## Preserve line breaks and spacing EXACTLY
+- Keep every line break and blank line exactly as in the input. Do NOT add, remove, merge, or reflow lines or paragraphs.
+- If two paragraphs are separated by one blank line, keep exactly one blank line — never add or drop blank lines.
+
 ## Output contract (STRICT)
 - Output ONLY the corrected text, in the same language as the input. Nothing else.
 - No explanations, no notes, no labels, no quotation marks around the result, no markdown code fences, no preamble.

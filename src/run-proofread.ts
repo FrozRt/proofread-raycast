@@ -9,11 +9,11 @@
 
 import {
   Clipboard,
+  getFrontmostApplication,
   getPreferenceValues,
   getSelectedText,
   showHUD,
 } from "@raycast/api";
-import { runAppleScript } from "@raycast/utils";
 import { DEFAULT_MODEL, proofread } from "./providers";
 import type { ProofreadOptions } from "./providers/types";
 import { asProofreadError, type ProofreadError } from "./lib/errors";
@@ -28,24 +28,27 @@ function resolveOptions(formal: boolean): ProofreadOptions {
   };
 }
 
-/** How the corrected text is pasted back over the selection. */
-type PasteMode = "plain" | "normal" | "copy";
-
-function pasteMode(): PasteMode {
-  const prefs = getPreferenceValues<Preferences>();
-  const mode = prefs.pasteMode;
-  return mode === "normal" || mode === "copy" ? mode : "plain";
+/** True when the frontmost app is Microsoft Teams (classic or new Teams). */
+async function frontmostAppIsTeams(): Promise<boolean> {
+  try {
+    const app = await getFrontmostApplication();
+    const name = app.name.toLowerCase();
+    const bundleId = (app.bundleId ?? "").toLowerCase();
+    return name.includes("teams") || bundleId.includes("teams");
+  } catch {
+    return false;
+  }
 }
 
 /**
- * "Paste and Match Style" (Shift+Cmd+V) via AppleScript — strips the source
- * formatting so apps like Microsoft Teams don't inject extra blank lines when
- * pasting rich text. Requires Accessibility permission for Raycast.
+ * Microsoft Teams can't render exactly one blank line from a paste — it inflates
+ * blank lines (a single blank becomes two or more). Since there's no clipboard
+ * form that yields one clean blank line in Teams, we drop blank lines entirely
+ * when Teams is the frontmost app: every run of newlines becomes a single line
+ * break. Other apps keep the text (and its blank lines) unchanged.
  */
-async function pasteMatchingStyle(): Promise<void> {
-  await runAppleScript(
-    'tell application "System Events" to keystroke "v" using {command down, shift down}',
-  );
+function dropBlankLinesForTeams(text: string): string {
+  return text.replace(/\n{2,}/g, "\n");
 }
 
 /**
@@ -101,20 +104,16 @@ export async function runProofread(formal: boolean): Promise<void> {
     await showHUD(`${label}…`);
     const { text: corrected } = await proofread(text, resolveOptions(formal));
 
-    if (fromSelection && pasteMode() !== "copy") {
-      if (pasteMode() === "plain") {
-        // Plain paste (Shift+Cmd+V): copy the plain string, then match style so
-        // Teams/Slack don't inject blank lines from rich-text formatting.
-        await Clipboard.copy(corrected);
-        await pasteMatchingStyle();
-        await showHUD("✅ Proofread — pasted in place (plain)");
-      } else {
-        // Normal rich paste (Cmd+V).
-        await Clipboard.paste(corrected);
-        await showHUD("✅ Proofread — pasted in place");
-      }
+    if (fromSelection) {
+      // Replace the selection in place. Teams inflates blank lines on paste and
+      // can't render a single clean blank line, so drop blank lines there.
+      const toPaste = (await frontmostAppIsTeams())
+        ? dropBlankLinesForTeams(corrected)
+        : corrected;
+      await Clipboard.paste(toPaste);
+      await showHUD("✅ Proofread — pasted in place");
     } else {
-      // No selection, or copy-only mode: leave the corrected text on the clipboard.
+      // Nothing was selected: leave the corrected text on the clipboard to paste.
       await Clipboard.copy(corrected);
       await showHUD("✅ Proofread — copied to clipboard");
     }

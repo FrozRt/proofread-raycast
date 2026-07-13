@@ -7,5 +7,5 @@
 - **Proofread Formal** command: additionally rewrites the text into a polished, formal register.
 - Technical terms and identifiers (code, URLs, CLI commands, product names) are kept verbatim.
 - Works in place: both commands are `no-view` — on the hotkey they proofread the selected text and paste it back over the selection (or, if nothing is selected, read the clipboard and leave the result there), with only a HUD for feedback.
-- **Paste Mode** preference: paste as plain match-style (Shift+Cmd+V, default — avoids extra blank lines in Microsoft Teams / Slack), normal (Cmd+V), or copy-only.
+- Preserves line breaks and blank lines. Exception: Microsoft Teams inflates blank lines on paste and can't render a single clean blank line, so blank lines are dropped (paragraphs paste as single line breaks) when Teams is the frontmost app.
 - Powered by Google Gemini via a free API key.
