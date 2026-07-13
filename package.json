@@ -39,6 +39,19 @@
       "type": "textfield",
       "required": false,
       "default": "gemini-3.1-flash-lite"
+    },
+    {
+      "name": "pasteMode",
+      "title": "Paste Mode",
+      "description": "How the corrected text replaces your selection. Plain match-style avoids extra blank lines in apps like Microsoft Teams.",
+      "type": "dropdown",
+      "required": false,
+      "default": "plain",
+      "data": [
+        { "title": "Plain (Shift+Cmd+V, match style)", "value": "plain" },
+        { "title": "Normal (Cmd+V, keep formatting)", "value": "normal" },
+        { "title": "Copy only (don't paste)", "value": "copy" }
+      ]
     }
   ],
   "dependencies": {
