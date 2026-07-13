@@ -8,6 +8,11 @@ It works **in place**: select text in any app, press the hotkey, and the correct
 pasted right back over your selection — no window, no form. (If nothing is selected, it reads
 the clipboard and leaves the corrected text there for you to paste.)
 
+By default it pastes with **match style** (Shift+Cmd+V) so apps like Microsoft Teams and Slack
+don't inject extra blank lines from rich-text formatting. Change this with the **Paste Mode**
+preference: `plain` (match style, default), `normal` (Cmd+V, keep formatting), or `copy` (just
+copy, don't paste). Match-style paste needs Accessibility permission for Raycast.
+
 Two commands, so each can get its own Raycast hotkey:
 
 - **Proofread** — fixes grammar, spelling, and punctuation while keeping your exact wording,
@@ -52,6 +57,7 @@ Studio)** and **Open Extension Preferences** actions.
 |---|---|---|---|
 | **Gemini API Key** | password | — | Free key — [aistudio.google.com](https://aistudio.google.com/app/apikey). |
 | **Gemini Model** | text | `gemini-3.1-flash-lite` | Gemini model ID. |
+| **Paste Mode** | dropdown | `plain` | How the result replaces the selection: plain match-style (avoids extra lines in Teams/Slack), normal, or copy-only. |
 
 ### Gemini models
 

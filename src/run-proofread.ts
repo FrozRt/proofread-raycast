@@ -13,6 +13,7 @@ import {
   getSelectedText,
   showHUD,
 } from "@raycast/api";
+import { runAppleScript } from "@raycast/utils";
 import { DEFAULT_MODEL, proofread } from "./providers";
 import type { ProofreadOptions } from "./providers/types";
 import { asProofreadError, type ProofreadError } from "./lib/errors";
@@ -25,6 +26,26 @@ function resolveOptions(formal: boolean): ProofreadOptions {
     model: (prefs.model ?? "").trim() || DEFAULT_MODEL,
     formal,
   };
+}
+
+/** How the corrected text is pasted back over the selection. */
+type PasteMode = "plain" | "normal" | "copy";
+
+function pasteMode(): PasteMode {
+  const prefs = getPreferenceValues<Preferences>();
+  const mode = prefs.pasteMode;
+  return mode === "normal" || mode === "copy" ? mode : "plain";
+}
+
+/**
+ * "Paste and Match Style" (Shift+Cmd+V) via AppleScript — strips the source
+ * formatting so apps like Microsoft Teams don't inject extra blank lines when
+ * pasting rich text. Requires Accessibility permission for Raycast.
+ */
+async function pasteMatchingStyle(): Promise<void> {
+  await runAppleScript(
+    'tell application "System Events" to keystroke "v" using {command down, shift down}',
+  );
 }
 
 /**
@@ -80,12 +101,20 @@ export async function runProofread(formal: boolean): Promise<void> {
     await showHUD(`${label}…`);
     const { text: corrected } = await proofread(text, resolveOptions(formal));
 
-    if (fromSelection) {
-      // Replace the selection in place.
-      await Clipboard.paste(corrected);
-      await showHUD("✅ Proofread — pasted in place");
+    if (fromSelection && pasteMode() !== "copy") {
+      if (pasteMode() === "plain") {
+        // Plain paste (Shift+Cmd+V): copy the plain string, then match style so
+        // Teams/Slack don't inject blank lines from rich-text formatting.
+        await Clipboard.copy(corrected);
+        await pasteMatchingStyle();
+        await showHUD("✅ Proofread — pasted in place (plain)");
+      } else {
+        // Normal rich paste (Cmd+V).
+        await Clipboard.paste(corrected);
+        await showHUD("✅ Proofread — pasted in place");
+      }
     } else {
-      // Nothing was selected: leave the corrected text on the clipboard to paste.
+      // No selection, or copy-only mode: leave the corrected text on the clipboard.
       await Clipboard.copy(corrected);
       await showHUD("✅ Proofread — copied to clipboard");
     }
